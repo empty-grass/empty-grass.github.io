@@ -12,6 +12,9 @@ recognition.continuous = true; // 継続して認識する
 let result = "";
 let startButton = document.getElementById('start');
 let stopButton = document.getElementById('stop');
+let mic = document.getElementById('mic');
+let wait = document.getElementById('wait');
+let error = document.getElementById('error');
 let output = document.getElementById('output');
 
 recognition.onstart = () => {
@@ -31,22 +34,61 @@ recognition.onerror = (event) => {
   console.log(event);
 };
 
-recognition.onend = (event) => {
+recognition.onend = async (event) => {
   console.log('音声認識が停止しました。');
+  mic.style.display = 'none';
+  wait.style.display = 'flex';
+  console.log(result);
+  let re = await fetchFurigana(result);
+  if (re) {
+    output.innerHTML = re;
+  } else {
+    error.style.display = 'flex';
+  }
+  wait.style.display = 'none';
+  startButton.removeAttribute('disabled');
+  stopButton.setAttribute('disabled', '');
 };
 
 startButton.onclick = () => {
+  startButton.setAttribute('disabled', '');
+  mic.style.display = 'flex';
+  error.style.display = 'none';
   recognition.start();
+  stopButton.removeAttribute('disabled');
 };
 
 stopButton.onclick = () => {
   recognition.stop();
-  output.innerText = result;
 };
 
 /** 漢字かな変換処理 */
-// async function fetchFurigana(target) {
-//   let kuroshiro = new Kuroshiro();
-//   await kuroshiro.init(new KuromojiAnalyzer({ dictPath: './dict' }));
-//   console.log(await kuroshiro.convert('初めまして', { to: "hiragana" }));
-// }
+async function fetchFurigana(target) {
+  if (!target) {
+    return '';
+  }
+
+  const URL = "https://bfyczjwxz5ibu2ra4a2cpk6bq40tiays.lambda-url.ap-northeast-1.on.aws/";
+  const headers = {
+    "Content-Type": "application/json"
+  };
+  const params = {
+    "query": target,
+    "grade": 1
+  };
+
+  try {
+    const response = await fetch(URL, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(params)
+    });
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+    const body = await response.json();
+    return body.result;
+  } catch (error) {
+    throw new Error(error);
+  }
+}
